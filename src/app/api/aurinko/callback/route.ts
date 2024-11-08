@@ -1,5 +1,6 @@
 // api/aurinko/callback
 
+import axios from 'axios';
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForToken, getAccountDetails } from 'src/lib/aurinko'; // Ensure these functions are defined in your aurinko.ts
@@ -20,15 +21,14 @@ export const GET = async (req: NextRequest) => {
         return NextResponse.json({ message: 'No code provided' }, { status: 400 });
     }
 
-
     try {
         // Exchange the authorization code for a token
         const tokenData = await exchangeCodeForToken(code);
-        console.log('Token data received ');
+        console.log('Token data received ', tokenData);
 
         // Fetch the user's account details using the access token
         const accountDetails = await getAccountDetails(tokenData.access_token);
-        console.log('Account details received');
+        console.log('Account details received ', accountDetails);
 
         // Ensure accountDetails contains the necessary fields
         if (!accountDetails.sub) {
@@ -53,10 +53,27 @@ export const GET = async (req: NextRequest) => {
         });
 
         console.log('User created');
-        return NextResponse.redirect(new URL('/mail',req.url))
+
+        // Construct the URL for the initial sync endpoint
+        const initialSyncUrl = `${process.env.NEXT_PUBLIC_URL}/api/initial-sync`;
+        console.log('Initial sync URL:', initialSyncUrl);
+
+        // Trigger initial sync endpoint
+        try {
+            const response = await axios.post(initialSyncUrl, {
+                accountId: accountDetails.sub.toString(),
+                userId
+            });
+            console.log('Initial sync triggered', response.data);
+        } catch (error) {
+            console.error('Error triggering initial sync catch function');
+        }
+
+        // Redirect the user to the mail page
+        return NextResponse.redirect(new URL('/mail', req.url));
     } catch (error) {
         console.error('Error processing callback aurinko route', error);
         const errorMessage = (error instanceof Error) ? error.message : 'Unknown error';
-        return NextResponse.json({ message: 'Failed to process callback', error: errorMessage }, { status: 500 });
+        return NextResponse.json({ message: 'Failed to process callback aurinko route', error: errorMessage }, { status: 500 });
     }
 };
