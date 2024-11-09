@@ -1,32 +1,174 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-    id          String  @id @default(cuid()) 
-    emailAdress String  @unique 
-    firstName   String?
-    lastName    String?
-    imageUrl    String? // Optionnel
-    accounts    Account[]
+  id                   String              @id @default(cuid())
+  firstName            String?
+  lastName             String?
+  imageUrl             String?
+  emailAddress         String              @unique
+  role                 Role                @default(user)
+  stripeSubscriptionId String?             @unique
+  accounts             Account[]
+  chatbotInteraction   ChatbotInteraction?
+  stripeSubscription   StripeSubscription? @relation(fields: [stripeSubscriptionId], references: [id])
+}
+
+model ChatbotInteraction {
+  id     String  @id @default(cuid())
+  day    String
+  count  Int     @default(1)
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@unique([day, userId])
+  @@index([day, userId])
+}
+
+model StripeSubscription {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  userId           String?  @unique
+  subscriptionId   String?  @unique
+  productId        String?
+  priceId          String?
+  customerId       String?
+  currentPeriodEnd DateTime
+  updatedAt        DateTime @updatedAt
+  user             User?
 }
 
 model Account {
-    id          String  @id @default(cuid()) 
-    userId      String
+  id             String         @id @default(cuid())
+  userId         String
+  name           String
+  nextDeltaToken String?
+  binaryIndex    Json?
+  emailAddress   String
+  provider       String
+  token          String         @unique
+  user           User           @relation(fields: [userId], references: [id])
+  emailAddresses EmailAddress[]
+  threads        Thread[]
+}
 
-    accessToken String @unique
-    emailAdress String 
-    name        String
-    nextDeltaToken String?
+model Thread {
+  id              String   @id @default(cuid())
+  subject         String
+  lastMessageDate DateTime
+  participantIds  String[]
+  accountId       String
+  done            Boolean  @default(false)
+  inboxStatus     Boolean  @default(true)
+  draftStatus     Boolean  @default(false)
+  sentStatus      Boolean  @default(false)
+  emails          Email[]
+  account         Account  @relation(fields: [accountId], references: [id])
 
-    user        User    @relation(fields: [userId], references: [id])
+  @@index([accountId])
+  @@index([done])
+  @@index([inboxStatus])
+  @@index([draftStatus])
+  @@index([sentStatus])
+  @@index([lastMessageDate])
+}
+
+model Email {
+  id                   String                @id @default(cuid())
+  threadId             String
+  createdTime          DateTime
+  lastModifiedTime     DateTime
+  sentAt               DateTime
+  receivedAt           DateTime
+  internetMessageId    String
+  subject              String
+  sysLabels            String[]
+  keywords             String[]
+  sysClassifications   String[]
+  sensitivity          Sensitivity           @default(normal)
+  meetingMessageMethod MeetingMessageMethod?
+  fromId               String
+  hasAttachments       Boolean
+  body                 String?
+  bodySnippet          String?
+  inReplyTo            String?
+  references           String?
+  threadIndex          String?
+  internetHeaders      Json[]
+  nativeProperties     Json?
+  folderId             String?
+  omitted              String[]
+  emailLabel           EmailLabel            @default(inbox)
+  from                 EmailAddress          @relation("FromEmail", fields: [fromId], references: [id])
+  thread               Thread                @relation(fields: [threadId], references: [id])
+  attachments          EmailAttachment[]
+  bcc                  EmailAddress[]        @relation("BccEmails")
+  cc                   EmailAddress[]        @relation("CcEmails")
+  replyTo              EmailAddress[]        @relation("ReplyToEmails")
+  to                   EmailAddress[]        @relation("ToEmails")
+
+  @@index([threadId])
+  @@index([emailLabel])
+  @@index([sentAt])
+}
+
+model EmailAddress {
+  id            String  @id @default(cuid())
+  name          String?
+  address       String
+  raw           String?
+  accountId     String
+  sentEmails    Email[] @relation("FromEmail")
+  account       Account @relation(fields: [accountId], references: [id])
+  receivedBcc   Email[] @relation("BccEmails")
+  receivedCc    Email[] @relation("CcEmails")
+  replyToEmails Email[] @relation("ReplyToEmails")
+  receivedTo    Email[] @relation("ToEmails")
+
+  @@unique([accountId, address])
+}
+
+model EmailAttachment {
+  id              String  @id @default(cuid())
+  name            String
+  mimeType        String
+  size            Int
+  inline          Boolean
+  contentId       String?
+  content         String?
+  contentLocation String?
+  emailId         String
+  Email           Email   @relation(fields: [emailId], references: [id])
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum EmailLabel {
+  inbox
+  sent
+  draft
+}
+
+enum Sensitivity {
+  normal
+  private
+  personal
+  confidential
+}
+
+enum MeetingMessageMethod {
+  request
+  reply
+  cancel
+  counter
+  other
 }

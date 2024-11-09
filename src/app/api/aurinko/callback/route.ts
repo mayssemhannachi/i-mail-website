@@ -41,14 +41,15 @@ export const GET = async (req: NextRequest) => {
                 id: accountDetails.sub.toString(),
             },
             update: {
-                accessToken: tokenData.access_token,
+                token: tokenData.access_token,
             },
             create: {
                 id: accountDetails.sub.toString(),
                 userId: userId || '',
-                emailAdress: accountDetails.email,
+                emailAddress: accountDetails.email,
                 name: accountDetails.name,
-                accessToken: tokenData.access_token,
+                token: tokenData.access_token,
+                provider: 'Aurinko', // Add the provider field
             }
         });
 
