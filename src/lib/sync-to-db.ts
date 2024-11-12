@@ -1,159 +1,152 @@
-import { EmailAddress, EmailMessage, EmailAttachment } from "~/types";
-import { Email, PrismaClient } from '@prisma/client';
-import pLimit from 'p-limit';
-import {db} from '~/server/db'
-import { add } from "date-fns";
-import { Prisma } from "@prisma/client";
+// /lib/sync-to-db.ts
 
-export async function syncEmailsToDatabase(emails: EmailMessage[], accountId : string) {
-    console.log('Attempting to sync emails to database', emails.length);
-    const limit = pLimit(10); // Limit the number of concurrent database writes
+import { EmailAddress, GmailMessage, getToField, EmailAttachment } from "~/types";
+import { db } from '~/server/db';
+import pLimit from 'p-limit';
+import { PrismaClient, Prisma } from '@prisma/client';
+const prisma = new PrismaClient({
+    log: ['query', 'info', 'warn', 'error'],
+  });
+
+
+
+
+export async function syncEmailsToDatabase(emails: GmailMessage[], accountId: string) {
+    console.log('Attempting to sync emails to database', emails.length,'for account', accountId);
+    const limit = pLimit(10); // Limit concurrent database writes
+
     try {
-        Promise.all(emails.map((email,index) => upsertEmail(email,accountId,index))) 
-    } catch (error) {
-        console.log('oopsises syncEmailsToDatabase',error)
+        // Process each email in parallel with a limit of 10 concurrent writes
+        await Promise.all(emails.map((email, index) => limit(async () => {
+            // Print each email before upserting
+            await upsertEmail(email, accountId, index);
+        })));
+        }
+    
+     catch (error) {
+        console.log('Error in syncEmailsToDatabase:', error);
     }
 }
 
-async function upsertEmail(email: EmailMessage, accountId : string,index : number) {
+
+function determineLabelType(message: GmailMessage) {
+    if (!message.labelIds || !Array.isArray(message.labelIds)) {
+        console.error("No labelIds found for email", message.id);
+        return undefined;
+    }
+
+    if (message.labelIds.includes("INBOX")) {
+        return 'inbox';
+    } else if (message.labelIds.includes("SENT")) {
+        return 'sent';
+    } else if (message.labelIds.includes("DRAFT")) {
+        return 'draft';
+    }
+    // Add other conditions if needed
+    return undefined;
+}
+
+
+async function upsertEmail(email: GmailMessage, accountId: string, index: number) {
     console.log('Upserting email', index);
+
     try {
-        let emailLabelType: 'inbox' | 'sent' | 'draft'  = 'inbox';
-        if (email.sysLabels.includes('inbox') || email.sysLabels.includes('important')) {
-            emailLabelType = 'inbox';
-        } else if (email.sysLabels.includes('sent')) {
-            emailLabelType = 'sent';
-        } else if (email.sysLabels.includes('draft')) {
-            emailLabelType = 'draft';
-        }
+        // Extract info about the email
+        const labelIds = determineLabelType(email);
+        const headers = email.payload?.headers;
+        const toField = getToField(email);
+        const fromField = headers?.find(header => header.name === 'From')?.value;
+        const replyToField = headers?.find(header => header.name === 'Reply-To')?.value;
+        const subject = headers?.find(header => header.name === 'Subject')?.value;
+        const date = new Date(parseInt(email.internalDate));
+        const body = email.payload?.body?.data;
+        const attachments = email.payload?.parts?.filter(part => part.filename);
+        const messageid = email.payload?.headers?.find(header => header.name === 'Message-ID')?.value;
+        // Extract the date and time part
+        const receivedHeader = headers?.find(header => header.name === 'Received')?.value;
+        const dateTimeRegex = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)/;
+        const match = receivedHeader ? receivedHeader.match(dateTimeRegex) : null;
+        if (match && match[1]) {
+            const dateTimeString = match[1];
+            const receivedTime = new Date(dateTimeString);
+            const attachments = email.payload.parts?.filter(part => part.filename);
+        
+            
+        
 
-        // {name:String , address: string}
-
-        const addressesToUpsert = new Map()
-        for(const address of [email.from, ...email.to, ...email.cc, ...email.bcc, ...email.replyTo]) {
-            addressesToUpsert.set(address.address,address)
-        }
-
-        const upsertedAddresses : (Awaited<ReturnType<typeof upsertEmailAddresses>>)[]=[]
-
-
-
-        for(const address of addressesToUpsert.values()){
-            const upsertedAddress = await upsertEmailAddresses(address,accountId)
-            upsertedAddresses.push(upsertedAddress)
-        }
-
-        const addressMap = new Map(
-            upsertedAddresses.filter(Boolean).map((address) => [address!.address, address])
-        )
-
-        const fromAddress = addressMap.get(email.from.address);
-        if (!fromAddress) {
-            console.log(`Failed to upsert from address for email ${email.bodySnippet}`);
-            return;
-        }
-
-        const toAddresses = email.to.map(addr => addressMap.get(addr.address)).filter(Boolean);
-        const ccAddresses = email.cc.map(addr => addressMap.get(addr.address)).filter(Boolean);
-        const bccAddresses = email.bcc.map(addr => addressMap.get(addr.address)).filter(Boolean);
-        const replyToAddresses = email.replyTo.map(addr => addressMap.get(addr.address)).filter(Boolean);
+        
 
         // 2. Upsert Thread
         const thread = await db.thread.upsert({
             where: { id: email.threadId },
             update: {
-                subject: email.subject,
+                subject: email.subject || '',
                 accountId,
-                lastMessageDate: new Date(email.sentAt),
+                lastMessageDate: new Date(email.internalDate),
                 done: false,
                 participantIds: [...new Set([
-                    fromAddress.id,
-                    ...toAddresses.map(a => a!.id),
-                    ...ccAddresses.map(a => a!.id),
-                    ...bccAddresses.map(a => a!.id)
-                ])]
+                    toField,
+                    fromField,
+                ].filter(id => id !== undefined))]
             },
             create: {
                 id: email.threadId,
                 accountId,
-                subject: email.subject,
+                subject: email.subject || '',
                 done: false,
-                draftStatus: emailLabelType === 'draft',
-                inboxStatus: emailLabelType === 'inbox',
-                sentStatus: emailLabelType === 'sent',
-                lastMessageDate: new Date(email.sentAt),
+                draftStatus: labelIds === 'draft',
+                inboxStatus: labelIds === 'inbox',
+                sentStatus: labelIds === 'sent',
+                lastMessageDate: new Date(email.internalDate),
                 participantIds: [...new Set([
-                    fromAddress.id,
-                    ...toAddresses.map(a => a!.id),
-                    ...ccAddresses.map(a => a!.id),
-                    ...bccAddresses.map(a => a!.id)
-                ])]
+                    toField,
+                    fromField,
+                ].filter(id => id !== undefined))]
             }
         });
 
+       
         // 3. Upsert Email
         await db.email.upsert({
             where: { id: email.id },
             update: {
                 threadId: thread.id,
-                createdTime: new Date(email.createdTime),
+                createdTime: new Date(email.internalDate),
                 lastModifiedTime: new Date(),
-                sentAt: new Date(email.sentAt),
-                receivedAt: new Date(email.receivedAt),
-                internetMessageId: email.internetMessageId,
-                subject: email.subject,
-                sysLabels: email.sysLabels,
-                keywords: email.keywords,
-                sysClassifications: email.sysClassifications,
-                sensitivity: email.sensitivity,
-                meetingMessageMethod: email.meetingMessageMethod,
-                fromId: fromAddress.id,
-                to: { set: toAddresses.map(a => ({ id: a!.id })) },
-                cc: { set: ccAddresses.map(a => ({ id: a!.id })) },
-                bcc: { set: bccAddresses.map(a => ({ id: a!.id })) },
-                replyTo: { set: replyToAddresses.map(a => ({ id: a!.id })) },
-                hasAttachments: email.hasAttachments,
-                internetHeaders: email.internetHeaders as any,
-                body: email.body,
-                bodySnippet: email.bodySnippet,
-                inReplyTo: email.inReplyTo,
-                references: email.references,
-                threadIndex: email.threadIndex,
-                nativeProperties: email.nativeProperties as any,
-                folderId: email.folderId,
-                omitted: email.omitted,
-                emailLabel: emailLabelType,
+                sentAt: new Date(email.internalDate),
+                receivedAt: receivedTime,
+                internetMessageId: messageid || '',
+                subject: email.subject || '',
+                sysLabels: email.labelIds,
+                fromId: fromField,
+                to: toField ? { create: [{ address: toField, accountId }] } : undefined,
+                replyTo: replyToField ? { create: [{ address: replyToField, accountId }] } : undefined,
+                internetHeaders: email.payload.headers as any,
+                body: body,
+                bodySnippet: email.snippet,
+                inReplyTo: replyToField,
+                emailLabel: determineLabelType(email) as typeof labelIds,
+                hasAttachments: !!attachments?.length,
             },
             create: {
                 id: email.id,
-                emailLabel: emailLabelType,
                 threadId: thread.id,
-                createdTime: new Date(email.createdTime),
+                createdTime: new Date(email.internalDate),
                 lastModifiedTime: new Date(),
-                sentAt: new Date(email.sentAt),
-                receivedAt: new Date(email.receivedAt),
-                internetMessageId: email.internetMessageId,
-                subject: email.subject,
-                sysLabels: email.sysLabels,
-                internetHeaders: email.internetHeaders as any,
-                keywords: email.keywords,
-                sysClassifications: email.sysClassifications,
-                sensitivity: email.sensitivity,
-                meetingMessageMethod: email.meetingMessageMethod,
-                fromId: fromAddress.id,
-                to: { connect: toAddresses.map(a => ({ id: a!.id })) },
-                cc: { connect: ccAddresses.map(a => ({ id: a!.id })) },
-                bcc: { connect: bccAddresses.map(a => ({ id: a!.id })) },
-                replyTo: { connect: replyToAddresses.map(a => ({ id: a!.id })) },
-                hasAttachments: email.hasAttachments,
-                body: email.body,
-                bodySnippet: email.bodySnippet,
-                inReplyTo: email.inReplyTo,
-                references: email.references,
-                threadIndex: email.threadIndex,
-                nativeProperties: email.nativeProperties as any,
-                folderId: email.folderId,
-                omitted: email.omitted,
+                sentAt: new Date(email.internalDate),
+                receivedAt: receivedTime,
+                internetMessageId: messageid || '',
+                subject: email.subject || '',
+                sysLabels: email.labelIds,
+                fromId: fromField|| '',
+                to: toField ? { create: [{ address: toField, accountId }] } : undefined,
+                replyTo: replyToField ? { create: [{ address: replyToField, accountId }] } : undefined,
+                internetHeaders: email.payload.headers as any,
+                body: email.payload.body.data,
+                bodySnippet: email.snippet,
+                inReplyTo: replyToField,
+                emailLabel: determineLabelType(email),
+                hasAttachments: !!attachments?.length,
             }
         });
 
@@ -180,72 +173,64 @@ async function upsertEmail(email: EmailMessage, accountId : string,index : numbe
             }
         });
 
-        // 4. Upsert Attachments
-        for (const attachment of email.attachments) {
-            await upsertAttachment(email.id, attachment);
-        }
-    } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            console.log(`Prisma error for email ${email.id}: ${error.message}`);
-        } else {
-            console.log(`Unknown error for email ${email.id}: ${error}`);
-        }
-    }
-
-    async function upsertEmailAddress(address: EmailAddress, accountId: string) {
-        try {
-            const existingAddress = await db.emailAddress.findUnique({
-                where: { accountId_address: { accountId: accountId, address: address.address ?? "" } },
-            });
-    
-            if (existingAddress) {
-                return await db.emailAddress.update({
-                    where: { id: existingAddress.id },
-                    data: { name: address.name, raw: address.raw },
-                });
-            } else {
-                return await db.emailAddress.create({
-                    data: { address: address.address ?? "", name: address.name, raw: address.raw, accountId },
-                });
+        if (attachments) {
+            try{for (const attachment of attachments) {
+                // 4. Upsert Attachments
+                for (const attachment of attachments) {
+                    const emailAttachment: EmailAttachment = {
+                        id: attachment.partId,
+                        name: attachment.filename || '',
+                        mimeType: attachment.mimeType || '',
+                        size: attachment.body?.size || 0,
+                        inline: !!attachment.headers?.find(header => header.name === 'Content-Disposition' && header.value.includes('inline')),
+                        contentId: attachment.headers?.find(header => header.name === 'Content-ID')?.value || '',
+                        content: attachment.body?.data || '',
+                        contentLocation: attachment.headers?.find(header => header.name === 'Content-Location')?.value || '',
+                    };
+                    await upsertAttachment(email.id, emailAttachment);
+                }
+            }}catch (error) {
+                 if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                    console.log(`Prisma error for email ${email.id}: ${error.message}`);
+                } else {
+                    console.log(`Unknown error for email ${email.id}: ${error}`);
+                    }
+                }  
+            
             }
-        } catch (error) {
-            console.log(`Failed to upsert email address: ${error}`);
-            return null;
-        }
-    }
-    async function upsertAttachment(emailId: string, attachment: EmailAttachment) {
-        try {
-            await db.emailAttachment.upsert({
-                where: { id: attachment.id ?? "" },
-                update: {
-                    name: attachment.name,
-                    mimeType: attachment.mimeType,
-                    size: attachment.size,
-                    inline: attachment.inline,
-                    contentId: attachment.contentId,
-                    content: attachment.content,
-                    contentLocation: attachment.contentLocation,
-                },
-                create: {
-                    id: attachment.id,
-                    emailId,
-                    name: attachment.name,
-                    mimeType: attachment.mimeType,
-                    size: attachment.size,
-                    inline: attachment.inline,
-                    contentId: attachment.contentId,
-                    content: attachment.content,
-                    contentLocation: attachment.contentLocation,
-                },
-            });
-
-
-    } catch (error) {
-        
-    }
+         
+    
 }
 
-
+async function upsertAttachment(emailId: string, attachment: EmailAttachment) {
+    try {
+        await db.emailAttachment.upsert({
+            where: { id: attachment.id ?? "" },
+            update: {
+                name: attachment.name,
+                mimeType: attachment.mimeType,
+                size: attachment.size,
+                inline: attachment.inline,
+                contentId: attachment.contentId,
+                content: attachment.content,
+                contentLocation: attachment.contentLocation,
+            },
+            create: {
+                id: attachment.id,
+                emailId,
+                name: attachment.name,
+                mimeType: attachment.mimeType,
+                size: attachment.size,
+                inline: attachment.inline,
+                contentId: attachment.contentId,
+                content: attachment.content,
+                contentLocation: attachment.contentLocation,
+            },
+        });
+    } catch (error) {
+        console.log(`Failed to upsert attachment for email ${emailId}: ${error}`);
+    }
+}
 
 async function upsertEmailAddresses(address : EmailAddress,accountId: string){
     try {
@@ -259,11 +244,14 @@ async function upsertEmailAddresses(address : EmailAddress,accountId: string){
             });
         }else{
             return await db.emailAddress.create({
-                data: {address:address.address??"",name:address.name,raw:address.raw,accountId},
+                data: {address:address.address??"",name:address.name,accountId},
             });
         }
     } catch (error) {
         console.log('Error upserting email address upsertEmailAddresses function', error)
     }
 }
+    } catch (error) {
+        console.log('Error upserting email upsertEmail function', error)
+    }
 }

@@ -18,11 +18,12 @@ export const getAurinkoAuthUrl = async (serviceType: 'Google' | 'Office365') => 
         client_id: process.env.GOOGLE_CLIENT_ID as string,
         redirect_uri: process.env.GOOGLE_REDIRECT_URI as string,
         response_type: 'code',
-        scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.compose',
+        scope: 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.labels',
         state,
     });
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    console.log('used aurinko.ts')
 };
 
 export const exchangeCodeForToken = async (code: string) => {

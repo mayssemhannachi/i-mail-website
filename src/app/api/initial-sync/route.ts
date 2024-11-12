@@ -16,10 +16,7 @@ export const POST = async (req: NextRequest) => {
         }
 
         const dbAccount = await db.account.findUnique({
-            where: {
-                id: accountId,
-                userId
-            }
+            where: { id: accountId, userId }
         });
 
         if (!dbAccount) {
@@ -27,34 +24,39 @@ export const POST = async (req: NextRequest) => {
             return NextResponse.json({ error: 'Account not found' }, { status: 404 });
         }
 
-        // Perform initial sync
         const account = new Account(dbAccount.token);
 
         const response = await account.performInitialSync();
+        console.log('Initial sync response:', response); // Log the full response here
+
         if (!response) {
             console.error('Error during initial sync perform function');
             return NextResponse.json({ error: 'Error during initial sync perform function' }, { status: 500 });
         }
 
-        // Sync emails to database
         const { emails, deltaToken } = response;
-        //console.log('emails', emails);
 
-        // Update the account with the next delta token
-       await db.account.update({
-            where: {
-                id: accountId
-            },
-            data: {
-                nextDeltaToken: deltaToken
-            }
-        });
+        try {
+            await db.account.update({
+                where: { id: accountId },
+                data: { nextDeltaToken: deltaToken }
+            });
+        } catch (dbError) {
+            console.error('Error updating account with new deltaToken:', dbError);
+            return NextResponse.json({ error: 'Failed to update deltaToken in database' }, { status: 500 });
+        }
 
-        // Sync emails to database (implement this function as needed)
-        await syncEmailsToDatabase(emails, accountId);
+        try {
+            await syncEmailsToDatabase(emails, accountId);
+        } catch (syncError) {
+            console.error('Error syncing emails to database:', syncError);
+            return NextResponse.json({ error: 'Failed to sync emails to database' }, { status: 500 });
+        }
 
-        console.log('Sync completed', deltaToken);
+        console.log('Sync completed successfully', deltaToken);
+
         return NextResponse.json({ success: true }, { status: 200 });
+
     } catch (error) {
         console.error('Error processing initial sync request', error);
         const errorMessage = (error instanceof Error) ? error.message : 'Unknown error';

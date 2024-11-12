@@ -12,7 +12,7 @@ model User {
   firstName            String?
   lastName             String?
   imageUrl             String?
-  emailAddress         String              @unique
+  emailAddress         String?             @unique
   role                 Role                @default(user)
   stripeSubscriptionId String?             @unique
   accounts             Account[]
@@ -60,14 +60,14 @@ model Account {
 
 model Thread {
   id              String   @id @default(cuid())
-  subject         String
-  lastMessageDate DateTime
+  subject         String?
+  lastMessageDate DateTime?
   participantIds  String[]
   accountId       String
-  done            Boolean  @default(false)
-  inboxStatus     Boolean  @default(true)
-  draftStatus     Boolean  @default(false)
-  sentStatus      Boolean  @default(false)
+  done            Boolean?  @default(false)
+  inboxStatus     Boolean?  @default(true)
+  draftStatus     Boolean?  @default(false)
+  sentStatus      Boolean?  @default(false)
   emails          Email[]
   account         Account  @relation(fields: [accountId], references: [id])
 
@@ -89,10 +89,7 @@ model Email {
   internetMessageId    String
   subject              String
   sysLabels            String[]
-  keywords             String[]
-  sysClassifications   String[]
   sensitivity          Sensitivity           @default(normal)
-  meetingMessageMethod MeetingMessageMethod?
   fromId               String
   hasAttachments       Boolean
   body                 String?
@@ -103,13 +100,10 @@ model Email {
   internetHeaders      Json[]
   nativeProperties     Json?
   folderId             String?
-  omitted              String[]
   emailLabel           EmailLabel            @default(inbox)
   from                 EmailAddress          @relation("FromEmail", fields: [fromId], references: [id])
-  thread               Thread                @relation(fields: [threadId], references: [id])
+  thread               Thread?               @relation(fields: [threadId], references: [id])
   attachments          EmailAttachment[]
-  bcc                  EmailAddress[]        @relation("BccEmails")
-  cc                   EmailAddress[]        @relation("CcEmails")
   replyTo              EmailAddress[]        @relation("ReplyToEmails")
   to                   EmailAddress[]        @relation("ToEmails")
 
@@ -126,8 +120,6 @@ model EmailAddress {
   accountId     String
   sentEmails    Email[] @relation("FromEmail")
   account       Account @relation(fields: [accountId], references: [id])
-  receivedBcc   Email[] @relation("BccEmails")
-  receivedCc    Email[] @relation("CcEmails")
   replyToEmails Email[] @relation("ReplyToEmails")
   receivedTo    Email[] @relation("ToEmails")
 
