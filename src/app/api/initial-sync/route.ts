@@ -27,7 +27,7 @@ export const POST = async (req: NextRequest) => {
         const account = new Account(dbAccount.token);
 
         const response = await account.performInitialSync();
-        console.log('Initial sync response:', response); // Log the full response here
+        console.log('Initial sync response: got all emails'); // Log the full response here
 
         if (!response) {
             console.error('Error during initial sync perform function');

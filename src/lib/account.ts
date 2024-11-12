@@ -31,6 +31,7 @@ export class Account {
                 const messageResponse = await axios.get(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
                     headers: {
                         Authorization: `Bearer ${this.token}`,
+                        format : 'full'
                     }
                 });
                 return messageResponse.data;
@@ -94,6 +95,8 @@ export class Account {
 
             if (!syncResponse || !syncResponse.nextPageToken) {
                 throw new Error('No nextPageToken found');
+            }else{
+                console.log('found nextpagetoken',syncResponse.nextPageToken)
             }
 
             // Save the delta token (nextPageToken) for future syncs
@@ -106,6 +109,7 @@ export class Account {
             while (updatedResponse.nextPageToken) {
                 updatedResponse = await this.getUpdatedEmails({ pageToken: updatedResponse.nextPageToken });
                 allEmails = allEmails.concat(updatedResponse.messages);
+                console.log('got all emails')
 
                 if (updatedResponse.nextPageToken) {
                     storedDeltaToken = updatedResponse.nextPageToken;

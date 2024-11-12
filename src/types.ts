@@ -1,3 +1,4 @@
+import { Thread } from "@prisma/client";
 import { z } from "zod";
 
 // Gmail API Message Response Structure
@@ -14,6 +15,7 @@ export interface GmailMessage {
   nextPageToken?: string; // Token for fetching the next page of results
   subject?: string;      // Subject of the email
   internetMessageId?: string; // Message ID
+  thread?:Thread
 }
 
 export interface MessagePayload {
