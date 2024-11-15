@@ -360,10 +360,20 @@ async function upsertEmailAddresses(
                     console.log(`Created new address: ${JSON.stringify(newEmail)}`);
                 }
             } catch (error) {
+<<<<<<< HEAD
                 if (error instanceof Error) {
                     console.error(`Error processing email address "${email.address}": ${error.message}`);
                 } else {
                     console.error(`Error processing email address "${email.address}": ${error}`);
+=======
+                if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                    // Unique constraint failed, fetch the existing record
+                    return await db.emailAddress.findUnique({
+                        where: { accountId_address: { accountId, address: emailAddress } },
+                    });
+                } else {
+                    throw error; // Rethrow if it's a different error
+>>>>>>> ff35b05c4f7f14888e3e050818f23761261a9df5
                 }
             }
         } else {
@@ -371,7 +381,11 @@ async function upsertEmailAddresses(
         }
     }
 
+<<<<<<< HEAD
     return results;
+=======
+    return results.filter(result => result !== null); // Filter out null results
+>>>>>>> ff35b05c4f7f14888e3e050818f23761261a9df5
 }
 
 
