@@ -9,7 +9,7 @@ const turndownService = new TurndownService();
 
 async function syncEmailsToDatabase(emails: GmailMessage[], accountId: string) {
     console.log('Attempting to sync emails to database', emails.length, 'for account', accountId);
-    const limit = pLimit(10); // Limit concurrent database writes
+    const limit = pLimit(1); // Limit concurrent database writes
 
     try {
         // Process each email in parallel with a limit of 10 concurrent writes
@@ -135,7 +135,7 @@ async function upsertEmail(email: GmailMessage, accountId: string, index: number
         );
 
         // Get the `fromId` from the upserted "from" address
-        const fromAddress = upsertedAddresses.find(address => address.address === fromField);
+        const fromAddress = upsertedAddresses && upsertedAddresses.find(address => address.address === fromField) || null;
         const fromId = fromAddress ? fromAddress.id : null;
 
         // 2. Upsert Thread
@@ -167,6 +167,10 @@ async function upsertEmail(email: GmailMessage, accountId: string, index: number
             }
         });
 
+        console.log('00000Upserting attachment for email', email.id,'=====================',toField);
+
+        
+
         // 3. Upsert Email
         await db.email.upsert({
             where: { id: email.id },
@@ -179,15 +183,25 @@ async function upsertEmail(email: GmailMessage, accountId: string, index: number
                 internetMessageId: messageid || '',
                 subject: subject || '',
                 sysLabels: email.labelIds,
-                fromId: fromField || '',
-                to: toField ? { create: [{ address: toField, accountId }] } : undefined,
-                replyTo: replyToField ? { create: [{ address: replyToField, accountId }] } : undefined,
-                internetHeaders: email.payload.headers as any,
+                fromId: fromId || '',
+                hasAttachments: !!attachments?.length,
                 body: body,
                 bodySnippet: email.snippet,
                 inReplyTo: replyToField,
                 emailLabel: determineLabelType(email) as typeof labelIds,
-                hasAttachments: !!attachments?.length,
+                // Update to field correctly
+                to: toField && Array.isArray(toField)
+                    ? toField.join(', ')
+                    : undefined,
+                replyTo: replyToField
+                    ? {
+                          connectOrCreate: {
+                              where: { accountId_address: { accountId, address: replyToField } },
+                              create: { address: replyToField, accountId },
+                          },
+                      }
+                    : undefined,
+                internetHeaders: email.payload.headers as any,
             },
             create: {
                 id: email.id,
@@ -200,16 +214,25 @@ async function upsertEmail(email: GmailMessage, accountId: string, index: number
                 subject: subject || '',
                 sysLabels: email.labelIds,
                 fromId: fromId || '',
-                to: toField ? { create: [{ address: toField, accountId }] } : undefined,
-                replyTo: replyToField ? { create: [{ address: replyToField, accountId }] } : undefined,
-                internetHeaders: email.payload.headers as any,
+                hasAttachments: !!attachments?.length,
                 body: body,
                 bodySnippet: email.snippet,
                 inReplyTo: replyToField,
                 emailLabel: determineLabelType(email) as typeof labelIds,
-                hasAttachments: !!attachments?.length,
-
-            }
+                // Create 'to' field correctly
+                to: toField && Array.isArray(toField)
+                ? toField.join(', ')
+                : undefined,
+                replyTo: replyToField
+                    ? {
+                          connectOrCreate: {
+                              where: { accountId_address: { accountId, address: replyToField } },
+                              create: { address: replyToField, accountId },
+                          },
+                      }
+                    : undefined,
+                internetHeaders: email.payload.headers as any,
+            },
         });
 
         const threadEmails = await db.email.findMany({
@@ -264,8 +287,11 @@ async function upsertEmail(email: GmailMessage, accountId: string, index: number
     }
 }
 
+
+
 async function upsertAttachment(emailId: string, attachment: EmailAttachment) {
     try {
+        
         await db.emailAttachment.upsert({
             where: { id: attachment.id ?? "" },
             update: {
@@ -299,32 +325,54 @@ async function upsertEmailAddresses(
     accountId: string
 ) {
     const { deliveredTo, replyTo, from } = addresses;
-    const emailFields = [deliveredTo, replyTo, from];
+    const emailFields = [
+        { address: from, type: 'from' },
+        { address: deliveredTo, type: 'deliveredTo' },
+        { address: replyTo, type: 'replyTo' }
+    ];
 
-    const results = await Promise.all(
-        emailFields.map(async (emailAddress) => {
-            if (!emailAddress) return null; // Skip if address is not provided
+    const results = [];
 
+    for (const email of emailFields) {
+        if (email.address) {
             try {
-                // Use upsert to handle the conflict without throwing an error
-                return await db.emailAddress.upsert({
-                    where: { accountId_address: { accountId, address: emailAddress } },
-                    update: { address: emailAddress }, // Update if it exists
-                    create: { address: emailAddress, accountId }, // Create if it doesn't exist
+                // Check if the email address already exists
+                const existingEmailAddress = await db.emailAddress.findUnique({
+                    where: { accountId_address: { accountId, address: email.address } },
                 });
+
+                if (existingEmailAddress) {
+                    // Update the existing email address
+                    console.log('=====================Found your address====================');
+                    console.log('existingEmailAddress', existingEmailAddress);
+                    const updatedEmail = await db.emailAddress.update({
+                        where: { id: existingEmailAddress.id },
+                        data: { name: email.address, raw: email.address },
+                    });
+                    results.push(updatedEmail);
+                    console.log(`Updated address: ${JSON.stringify(updatedEmail)}`);
+                } else {
+                    // Create a new email address
+                    const newEmail = await db.emailAddress.create({
+                        data: { address: email.address, name: email.address, raw: email.address, accountId },
+                    });
+                    results.push(newEmail);
+                    console.log(`Created new address: ${JSON.stringify(newEmail)}`);
+                }
             } catch (error) {
-                console.error(`Error upserting email address (${emailAddress}):`, error);
-                throw error;
+                if (error instanceof Error) {
+                    console.error(`Error processing email address "${email.address}": ${error.message}`);
+                } else {
+                    console.error(`Error processing email address "${email.address}": ${error}`);
+                }
             }
-        })
-    );
+        } else {
+            console.log(`Skipping ${email.type} because it is null or undefined.`);
+        }
+    }
 
-    // Filter out any null values from results (i.e., skipped addresses)
-    return results.filter((result) => result !== null);
+    return results;
 }
-
-
-
 
 
 export { syncEmailsToDatabase }

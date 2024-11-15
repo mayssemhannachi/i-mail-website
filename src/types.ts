@@ -29,6 +29,7 @@ export interface EmailHeader {
   value: string;
 }
 
+
 export interface MessagePartBody {
   size: number;
   data: string;  // Base64-encoded content (for example, the body of the email)
@@ -85,8 +86,9 @@ export const getFromField = (message: GmailMessage): string | undefined => {
 
 // Example Email Address Structure
 export interface EmailAddress {
-  name: string;
+  name?: string;
   address: string;
+  raw?: string;
 }
 
 // Utility to Parse Email Header into an EmailAddress Format
