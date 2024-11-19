@@ -6,6 +6,8 @@ import { Separator } from "~/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+import AccountSwitcher  from "src/app/mail/account-switcher"
+import SideBar from "./sidebar"
 
 
 type Props ={
@@ -31,10 +33,13 @@ const Mail = ({defaultLayout =[20,32,48] , navCollapsedSize ,defaultCollapsed } 
                 className={cn(isCollapsed && 'min-w-[50px] transition-all duration-300 ease-in-out')} >
                     <div className="flex flex-col h-full flex-1" >
                         <div className={cn("flex h-[52px] items-center justify-between", isCollapsed ? 'h-[52px]' : 'px-2' )}>
-                             {/*account switcher*/} Account Switcher </div>
+                             {/*account switcher*/}
+                             <AccountSwitcher isCollapsed={isCollapsed} />
+                              </div>
                             <Separator/>
                             {/*Sidebar*/}
-                            Sidebar
+                            <SideBar isCollapsed={isCollapsed} />
+                            
                             <div className="flex-1"></div>
                             {/*Ask AI*/}
                             Ask AI
