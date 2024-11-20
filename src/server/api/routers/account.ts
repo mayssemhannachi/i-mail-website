@@ -21,7 +21,7 @@ export const authoriseAccountAccess = async (accountId: string, userId: string) 
     if (!account) throw new Error("Invalid token")
     return account
 }
-
+    
 export const accountRouter = createTRPCRouter({
     getAccounts: privateProcedure.query(async ({ ctx})=>{
         return await ctx.db.account.findMany({

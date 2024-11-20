@@ -21,6 +21,7 @@ type Props = { isCollapsed: boolean }
 
 const SideBar = ({ isCollapsed }: Props) => {
     const [accountId] = useLocalStorage("accountId", "")
+    console.log("Account ID from local storage:", accountId);
     const [tab] = useLocalStorage("I-mAil-tab", "inbox")
     
     const { data: inboxThreads } = api.account.getNumThreads.useQuery({
@@ -30,7 +31,7 @@ const SideBar = ({ isCollapsed }: Props) => {
 
     const { data: draftsThreads } = api.account.getNumThreads.useQuery({
         accountId,
-        tab: "drafts"
+        tab: "draft"
     })
 
     const { data: sentThreads } = api.account.getNumThreads.useQuery({

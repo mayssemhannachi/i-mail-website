@@ -49,49 +49,62 @@ export class Account {
         try {
             const params: Record<string, string> = {
                 maxResults: '10',
-                q: 'newer_than:2d',  // Fetch emails from last 2 days
-                includeSpamTrash: 'true'
+                q: 'newer_than:2d', // Fetch emails from last 2 days
+                includeSpamTrash: 'true',
             };
-
+    
             if (pageToken) params.pageToken = pageToken;
-
+    
             const response = await axios.get('https://gmail.googleapis.com/gmail/v1/users/me/messages', {
                 headers: {
                     Authorization: `Bearer ${this.token}`,
                 },
                 params,
             });
-
+    
+            console.log('API Response:', response.data);
+    
+            // Check if messages field exists
+            if (!response.data.messages) {
+                console.warn('No messages found.');
+                return { messages: [], nextPageToken: response.data.nextPageToken };
+            }
+    
             const messageIds = response.data.messages.map((msg: { id: string }) => msg.id);
-
+    
             // Fetch details of each message
             const messages = await Promise.all(messageIds.map(async (id: string) => {
                 const messageResponse = await axios.get(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
                     headers: {
                         Authorization: `Bearer ${this.token}`,
-                    }
+                    },
                 });
                 return messageResponse.data;
             }));
-
+    
             return { messages, nextPageToken: response.data.nextPageToken };
-        } catch (error) {
-            if (axios.isAxiosError(error) && error.response?.status === 401) {
-                console.error('Unauthorized request. Token may have expired.', error);
-                // Handle token refresh logic here if necessary
+        } catch (error: any) {
+            if (axios.isAxiosError(error)) {
+                console.error('Axios error:', error.response?.data || error.message);
+                if (error.response?.status === 401) {
+                    console.error('Unauthorized request. Token may have expired.');
+                    // Handle token refresh logic here if necessary
+                } else if (error.response?.status === 429) {
+                    console.error('Rate limit exceeded. Consider retrying after a delay.');
+                }
             } else {
-                console.error('Error during getUpdatedEmails in Account.ts', error);
+                console.error('Unexpected error during getUpdatedEmails:', error);
             }
             throw error;
         }
     }
-
     // Perform the initial synchronization process
     async performInitialSync() {
         try {
             console.log('Starting initial sync performInitialSync');
             // Start the initial sync process
             const syncResponse = await this.startSync();
+            console.log('got sync response',syncResponse)
 
             if (!syncResponse || !syncResponse.nextPageToken) {
                 throw new Error('No nextPageToken found');
