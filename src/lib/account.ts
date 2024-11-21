@@ -18,8 +18,8 @@ export class Account {
                     Authorization: `Bearer ${this.token}`,
                 },
                 params: {
-                    maxResults: 10,
-                    q: 'newer_than:2d',
+                    maxResults: 20,
+                    q: 'newer_than:4d',
                     includeSpamTrash: false
                 }
             });

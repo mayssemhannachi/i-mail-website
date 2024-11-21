@@ -8,6 +8,7 @@ import { TooltipProvider } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 import AccountSwitcher  from "src/app/mail/account-switcher"
 import SideBar from "./sidebar"
+import ThreadList from "./thread-list";
 
 
 type Props ={
@@ -58,8 +59,12 @@ const Mail = ({defaultLayout =[20,32,48] , navCollapsedSize ,defaultCollapsed } 
                         <Separator />
                         {/*Search Bar*/}
                         Search Bar
-                        <TabsContent value="inbox"> Inbox</TabsContent>
-                        <TabsContent value="done">Done</TabsContent>
+                        <TabsContent value="inbox"> 
+                            <ThreadList />
+                        </TabsContent>
+                        <TabsContent value="done">
+                            <ThreadList />
+                        </TabsContent>
                     </Tabs>
                 </ResizablePanel>
                 <ResizableHandle withHandle />
