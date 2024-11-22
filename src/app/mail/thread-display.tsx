@@ -14,7 +14,6 @@ import {
     ReplyAll,
     Trash2,
   } from "lucide-react"
-  import { Separator } from "@radix-ui/react-separator";
 
   import {
     DropdownMenuContent,
@@ -25,6 +24,12 @@ import {
     DropdownMenu,
     DropdownMenuTrigger,
   } from "src/components/ui/dropdown-menu"
+import { Avatar } from "@radix-ui/react-avatar"
+import { AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { format } from "date-fns"
+import { date } from "zod"
+import { Separator } from "src/components/ui/separator"
+
 
 
 const ThreadDisplay=() =>{
@@ -68,6 +73,44 @@ const ThreadDisplay=() =>{
                 </div>
             </div>
             <Separator />
+            {thread ? <>
+                <div className="flex flex-col flex-1 overflow-scroll">
+                    <div className="flex items-center p-4">
+                        <div className="flex items-center gap-4 text-sm">
+                            <Avatar>
+                                <AvatarImage alt="avatar"/>
+                                <AvatarFallback>
+                                    {thread.emails[0]?.from?.name?.split("").map(chunk=>chunk[0]).join("")}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="grid gap-1">
+                                <div className="font-semibold">
+                                    {thread.emails[0]?.from.name}
+                                    <div className="text-xs line-clamp-1">
+                                        {thread.emails[0]?.subject}
+                                    </div>
+                                    <div className="text-xs line-clamp-1">
+                                        <span className="font-medium">
+                                            Reply-To:
+                                        </span>
+                                        {thread.emails[0]?.from?.address}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {thread.emails[0]?.sentAt && (
+                            <div className="ml-auto text-xs text-muted-foreground">
+                                {format(new Date(thread.emails[0]?.sentAt),"PPpp")}
+                            </div>
+                        )}
+                    </div>
+                    <Separator/>
+                </div>
+            </> : <>
+                <div className="p-8 text-center text-muted-foreground">
+                    No message selected
+                </div>
+            </>}
 
            
 
