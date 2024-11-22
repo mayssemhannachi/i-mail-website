@@ -30,7 +30,7 @@ const ThreadList = () => {
                         </div>
                         {threads.map(thread => {
                             const threadFrom = thread.emails.at(-1)?.from.name || "";
-                            const displayName = threadFrom.replace(/<.*>/, "").trim(); // Extract the name outside <>
+                            const displayName = threadFrom.replace(/<.*>/, "").replace(/"/g, "").trim(); // Extract the name outside <>
                             const emailAddress = threadFrom.match(/<([^>]+)>/)?.[1] || ""; // Extract the text inside <>
 
                             return <button onClick={()=>setThreadId(thread.id)} key={thread.id} className={

@@ -29,11 +29,15 @@ import { AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 import { format } from "date-fns"
 import { date } from "zod"
 import { Separator } from "src/components/ui/separator"
+<<<<<<< HEAD
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
   } from "~/components/ui/tooltip"
+=======
+import EmailDisplay from "./email-display";
+>>>>>>> 0224c35ab7bc9f9ed3c394cfbaac4d786dfe770a
 
 
 
@@ -129,6 +133,16 @@ export function ThreadDisplay() {
                         )}
                     </div>
                     <Separator/>
+                    <div className="max-h-[calc(100vh-50px)] overflow-scroll flex flex-col">
+                        <div className="p-6 flex-col gap-4">
+                            {thread.emails.map(email =>{
+                                return <EmailDisplay key={email.id} email={email}/>
+                            })}
+                        </div>
+                    </div>
+                    <div className="flex-1"></div>
+                    <Separator className="mt-auto"/>
+                    Reply box
                 </div>
             ) :(
             <>
