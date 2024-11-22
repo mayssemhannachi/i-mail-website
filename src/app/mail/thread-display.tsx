@@ -29,33 +29,57 @@ import { AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 import { format } from "date-fns"
 import { date } from "zod"
 import { Separator } from "src/components/ui/separator"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+  } from "~/components/ui/tooltip"
 
 
 
-const ThreadDisplay=() =>{
+export function ThreadDisplay() {
     const {threadId, threads} =useThreads()
     const thread =threads?.find(t=>t.id===threadId)
+    const threadFrom = thread ? thread.emails.at(-1)?.from.name || "" : "";
+    const displayName = threadFrom.replace(/<.*>/, "").trim(); // Extract the name outside <>
+    const emailAddress = threadFrom.match(/<([^>]+)>/)?.[1] || ""; // Extract the text inside <>
+
     return(
         <div className='flex flex-col h-full'>
             <div className='flex items-center p-2'>
                 <div className="flex items-center gap-2">
-                    <Button variant={'ghost'} size='icon' disabled={!thread}>
-                    <Archive className='siez4' />
-                     </Button>
-                    <Button variant={'ghost'} size='icon' disabled={!thread}>
-                         <ArchiveX className='siez4' />
-                    </Button>
-                    <Button variant={'ghost'} size='icon' disabled={!thread}>
-                         <Trash2 className='siez4' />
-                    </Button>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant={'ghost'} size='icon' disabled={!thread}>
+                                <Archive className='w-4 h-4' />
+                                <span className='sr-only'>Archive</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Archive</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant={'ghost'} size='icon' disabled={!thread}>
+                                <Trash2 className='w-4 h-4' />
+                                <span className='sr-only'>Move to junk</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Move to junk</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant={'ghost'} size='icon' disabled={!thread}>
+                                <Reply className='w-4 h-4' />
+                                <span className='sr-only'>Reply</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Reply</TooltipContent>
+                    </Tooltip>
+                    
                 </div>
-                <Separator orientation="vertical" className="ml-2" />
-                <Button className="ml-2" variant={'ghost'} size='icon' disabled={!thread}>
-                         <Clock className='siez4' />
-                </Button>
             
             
-                <div className="flex items-center ml-auto">
+                <div className="flex items-center gap-2 ml-auto">
                     <DropdownMenu>
                         <DropdownMenuTrigger >
                             <Button className="ml-2" variant="ghost" size="icon" disabled={!thread}>
@@ -73,28 +97,28 @@ const ThreadDisplay=() =>{
                 </div>
             </div>
             <Separator />
-            {thread ? <>
+            {thread ? (
                 <div className="flex flex-col flex-1 overflow-scroll">
-                    <div className="flex items-center p-4">
-                        <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-start p-4">
+                        <div className="flex items-start gap-4 text-sm">
                             <Avatar>
                                 <AvatarImage alt="avatar"/>
-                                <AvatarFallback>
-                                    {thread.emails[0]?.from?.name?.split("").map(chunk=>chunk[0]).join("")}
+                                <AvatarFallback >
+                                    {displayName.split(" ").map(word => word[0]).join("")}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="grid gap-1">
                                 <div className="font-semibold">
-                                    {thread.emails[0]?.from.name}
-                                    <div className="text-xs line-clamp-1">
-                                        {thread.emails[0]?.subject}
-                                    </div>
-                                    <div className="text-xs line-clamp-1">
-                                        <span className="font-medium">
-                                            Reply-To:
-                                        </span>
-                                        {thread.emails[0]?.from?.address}
-                                    </div>
+                                    {displayName}
+                                </div>
+                                <div className="text-xs line-clamp-1">
+                                    {thread.emails[0]?.subject}
+                                </div>
+                                <div className="text-xs line-clamp-1">
+                                    <span className="font-medium">
+                                        Reply-To:
+                                    </span>
+                                    {emailAddress}
                                 </div>
                             </div>
                         </div>
@@ -106,11 +130,13 @@ const ThreadDisplay=() =>{
                     </div>
                     <Separator/>
                 </div>
-            </> : <>
+            ) :(
+            <>
                 <div className="p-8 text-center text-muted-foreground">
                     No message selected
                 </div>
-            </>}
+            </>
+            )}
 
            
 
