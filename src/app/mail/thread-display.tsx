@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import EmailDisplay from "./email-display"
 
 import useThreads from "~/hooks/use-threads"
 import { Button } from "src/components/ui/button"
@@ -29,15 +30,11 @@ import { AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 import { format } from "date-fns"
 import { date } from "zod"
 import { Separator } from "src/components/ui/separator"
-<<<<<<< HEAD
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
   } from "~/components/ui/tooltip"
-=======
-import EmailDisplay from "./email-display";
->>>>>>> 0224c35ab7bc9f9ed3c394cfbaac4d786dfe770a
 
 
 
