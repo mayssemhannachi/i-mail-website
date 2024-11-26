@@ -9,6 +9,7 @@ import {
 } from '@clerk/nextjs'
 
 import { ThemeProvider } from "src/components/theme-provider";
+import KBar from "~/components/kbar";
 
 
 export const metadata: Metadata = {
@@ -30,7 +31,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <TRPCReactProvider>
+            <KBar>
+              {children}
+            </KBar>
+          </TRPCReactProvider>
           </ThemeProvider>
         </body>
       </html>
