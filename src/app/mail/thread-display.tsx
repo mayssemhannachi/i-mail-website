@@ -36,6 +36,7 @@ import {
     TooltipContent,
     TooltipTrigger,
   } from "~/components/ui/tooltip"
+import ReplyBox from "./reply-box"
 
 
 
@@ -140,7 +141,7 @@ export function ThreadDisplay() {
                     </div>
                     <div className="flex-1"></div>
                     <Separator className="mt-auto"/>
-                    Reply box
+                    <ReplyBox/>
                 </div>
             ) :(
             <>
