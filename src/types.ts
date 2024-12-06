@@ -18,6 +18,11 @@ export interface GmailMessage {
   thread?:Thread
 }
 
+export const emailAddressSchema = z.object({
+  name: z.string(),
+  address: z.string(),
+})
+
 export interface MessagePayload {
   headers: EmailHeader[];  // Headers like From, To, Subject, etc.
   body: MessagePartBody;   // Body content

@@ -2,12 +2,37 @@
 
 import axios from 'axios';
 import { GmailMessage } from '~/types';
+import { encode as base64Encode } from 'base-64';
 
 export class Account {
     private token: string;
+    private refreshToken: string;
+    private clientId: string;
+    private clientSecret: string;
 
-    constructor(token: string) {
+    constructor(token: string, refreshToken: string, clientId: string, clientSecret: string) {
         this.token = token;
+        this.refreshToken = refreshToken;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+    }
+
+    // Function to refresh the access token
+    private async refreshAccessToken() {
+        try {
+            const response = await axios.post('https://oauth2.googleapis.com/token', {
+                client_id: this.clientId,
+                client_secret: this.clientSecret,
+                refresh_token: this.refreshToken,
+                grant_type: 'refresh_token',
+            });
+
+            this.token = response.data.access_token;
+            console.log('Access token refreshed:', this.token);
+        } catch (error) {
+            console.error('Error refreshing access token:', error);
+            throw error;
+        }
     }
 
     // Fetch emails from the last 2 days
@@ -45,7 +70,7 @@ export class Account {
     }
 
     // Fetch updated emails with pagination support
-    async getUpdatedEmails({ pageToken }: { pageToken?: string }) {
+    async getUpdatedEmails({ pageToken }: { pageToken?: string }): Promise<{ messages: GmailMessage[], nextPageToken?: string }> {
         try {
             const params: Record<string, string> = {
                 maxResults: '10',
@@ -88,7 +113,8 @@ export class Account {
                 console.error('Axios error:', error.response?.data || error.message);
                 if (error.response?.status === 401) {
                     console.error('Unauthorized request. Token may have expired.');
-                    // Handle token refresh logic here if necessary
+                    await this.refreshAccessToken();
+                    return this.getUpdatedEmails({ pageToken }); // Retry the request after refreshing the token
                 } else if (error.response?.status === 429) {
                     console.error('Rate limit exceeded. Consider retrying after a delay.');
                 }
@@ -98,6 +124,7 @@ export class Account {
             throw error;
         }
     }
+
     // Perform the initial synchronization process
     async performInitialSync() {
         try {
@@ -148,4 +175,110 @@ export class Account {
             throw error;
         }
     }
+
+    // Helper function to format email addresses
+    private formatEmailAddresses(emails: EmailAddress[]): string {
+        return emails.map(email => `${email.name} <${email.address}>`).join(', ');
+    }
+
+    // Helper function to validate email addresses
+    private validateEmailAddresses(emails: EmailAddress[]): EmailAddress[] {
+        const emailSet = new Set<string>();
+        const validEmails: EmailAddress[] = [];
+
+        emails.forEach(email => {
+            const formattedEmail = `${email.name} <${email.address}>`;
+            if (!emailSet.has(formattedEmail)) {
+                emailSet.add(formattedEmail);
+                validEmails.push(email);
+            }
+            console.log('Validated email:', email);
+        });
+
+        return validEmails;
+    }
+
+    async sendEmail({
+        from,
+        subject,
+        body,
+        inReplyTo,
+        references,
+        threadId,
+        to,
+        cc,
+        bcc,
+        replyTo,
+    }: {
+        from: EmailAddress;
+        subject: string;
+        body: string;
+        inReplyTo?: string;
+        references?: string;
+        threadId?: string;
+        to: EmailAddress[];
+        cc?: EmailAddress[];
+        bcc?: EmailAddress[];
+        replyTo?: EmailAddress;
+    }): Promise<any> {
+        try {
+            console.log('Preparing to send email...');
+            
+            // Validate and format email addresses
+            const validTo = this.validateEmailAddresses(to);
+            const validCc = cc ? this.validateEmailAddresses(cc) : [];
+            const validBcc = bcc ? this.validateEmailAddresses(bcc) : [];
+    
+            // Construct raw email message
+            let rawMessage = `From: ${from.name} <${from.address}>\r\n`;
+            rawMessage += `To: ${this.formatEmailAddresses(validTo)}\r\n`;
+            if (validCc.length > 0) rawMessage += `Cc: ${this.formatEmailAddresses(validCc)}\r\n`;
+            if (validBcc.length > 0) rawMessage += `Bcc: ${this.formatEmailAddresses(validBcc)}\r\n`;
+            if (replyTo) rawMessage += `Reply-To: ${replyTo.name} <${replyTo.address}>\r\n`;
+            if (inReplyTo) rawMessage += `In-Reply-To: ${inReplyTo}\r\n`;
+            if (references) rawMessage += `References: ${references}\r\n`;
+            rawMessage += `Subject: ${subject}\r\n`;
+            rawMessage += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`;
+            rawMessage += `${body}`;
+
+            const encodedMessage = Buffer.from(rawMessage)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            console.log('Sending email via Gmail API...');
+            const response = await axios.post(
+                'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+                { raw: encodedMessage, threadId },
+                {
+                    headers: {
+                        Authorization: `Bearer ${this.token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            console.log('Email sent successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.error('Error sending email:', JSON.stringify(error.response?.data, null, 2));
+                if (error.response?.status === 401) {
+                    console.error('Unauthorized. Token may have expired.');
+                    await this.refreshAccessToken();
+                    return this.sendEmail({ from, subject, body, inReplyTo, references, threadId, to, cc, bcc, replyTo }); // Retry the request after refreshing the token
+                }
+            } else {
+                console.error('Unexpected error:', error);
+            }
+            throw error;
+        }
+    }
 }
+
+// Define the EmailAddress type
+type EmailAddress = {
+    name: string;
+    address: string;
+};
