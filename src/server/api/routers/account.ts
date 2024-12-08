@@ -1,16 +1,13 @@
 // src/server/api/routers/account.ts
 
 import { createTRPCRouter, privateProcedure } from "src/server/api/trpc";
-import { ostring, z } from "zod";
+import { z } from "zod";
 import { db } from "src/server/db";
 import type { Prisma } from "@prisma/client";
-import { threadId } from "worker_threads";
+import { emailAddressSchema } from "src/types";
+import { Account } from "~/lib/account";
 import { create, insert, search, save, load, type AnyOrama } from "@orama/orama";
 import { persist, restore } from "@orama/plugin-data-persistence";
-import { Account } from "src/lib/account";
-
-
-
 
 
 /*export class OramaClient {
@@ -73,7 +70,6 @@ import { Account } from "src/lib/account";
     
 }*/
 
-
 export const authoriseAccountAccess = async (accountId: string, userId: string) => {
     const account = await db.account.findFirst({
         where: {
@@ -126,20 +122,7 @@ export const accountRouter = createTRPCRouter({
         done: z.boolean()
     })).query(async ({ ctx, input }) => {
         const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId);
-        // Create an instance of the Account class
-        const accountdb = await db.account.findUnique({
-            where:{token: account.token}
-        })
-        if (!accountdb) throw new Error("Account not found");
 
-        const acc = new Account(
-            account.token,
-            accountdb.nextDeltaToken || '',
-            process.env.GOOGLE_CLIENT_ID || '',
-            process.env.GOOGLE_CLIENT_SECRET || ''
-        );
-
-        acc.syncEmails().catch(console.error)
         let filter: Prisma.ThreadWhereInput = {
             accountId: input.accountId, // Ensure threads belong to the account
         };
@@ -221,12 +204,47 @@ export const accountRouter = createTRPCRouter({
         const lastExternalEmail = thread.emails.reverse().find(email => email.from.address !== account.emailAddress);
         if (!lastExternalEmail) throw new Error('No external email found');
 
-        return{
-            subject:lastExternalEmail.subject,
-            to:[lastExternalEmail.from, ...lastExternalEmail.to.filter(to => to.address !== account.emailAddress)],
-            from:{name:account.name,address:account.emailAddress},
-            id:lastExternalEmail.internetMessageId
-        }
+        return {
+            subject: lastExternalEmail.subject,
+            to: [lastExternalEmail.from, ...lastExternalEmail.to.filter(to => to.address !== account.emailAddress)],
+            from: { name: account.name, address: account.emailAddress },
+            id: lastExternalEmail.internetMessageId
+        };
+    }),
+    sendEmail: privateProcedure.input(z.object({
+        accountId: z.string(),
+        email: z.object({
+            from: emailAddressSchema,
+            to: z.array(emailAddressSchema),
+            subject: z.string(),
+            cc: z.array(emailAddressSchema).optional(),
+            bcc: z.array(emailAddressSchema).optional(),
+            body: z.string(),
+            replyTo: emailAddressSchema,
+            inReplyTo: z.string().optional(),
+            threadId: z.string().optional()
+        })
+    })).mutation(async ({ ctx, input }) => {
+        const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId);
+
+        const acc = new Account(
+            account.token,
+            process.env.REFRESH_TOKEN || '',
+            process.env.CLIENT_ID || '',
+            process.env.CLIENT_SECRET || ''
+        );
+
+        await acc.sendEmail({
+            from: input.email.from,
+            to: input.email.to,
+            cc: input.email.cc,
+            bcc: input.email.bcc,
+            subject: input.email.subject,
+            body: input.email.body,
+            inReplyTo: input.email.inReplyTo,
+            replyTo: input.email.replyTo,
+            threadId: input.email.threadId // Ensure threadId is passed if available
+        });
     }),
     /*searchEmails: privateProcedure.input(z.object({
         accountId: z.string(),
@@ -239,5 +257,4 @@ export const accountRouter = createTRPCRouter({
         return results
     }),*/
     
-})
-    
+});
