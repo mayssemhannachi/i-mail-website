@@ -46,15 +46,15 @@ const Component = ({replyDetails}:{replyDetails:RouterOutputs['account']['getRep
                 to: Array.isArray(toValues) ? toValues.map(to => ({ address: to.value, name: "" })) : [],
                 subject: subject,
                 inReplyTo: undefined,
-                replyTo: { name: account?.name ?? "Me", address: account.emailAddress ?? "me@example.com" }
-            },
-        }, {
+                replyTo: { name: account?.name ?? "Me", address: account.emailAddress ?? "me@example.com" }}
+            },{
             onSuccess: () => {
                 toast.success('Email Sent')
             },
             onError: (error) => {
-                console.error(error)
                 toast.error('Failed to send email')
+                console.error(error)
+                
             }
         })
     }

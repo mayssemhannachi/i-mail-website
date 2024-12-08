@@ -3,6 +3,8 @@
 import axios from 'axios';
 import { GmailMessage } from '~/types';
 import { encode as base64Encode } from 'base-64';
+import { db } from '~/server/db';
+import { syncEmailsToDatabase } from './sync-to-db';
 
 export class Account {
     private token: string;
@@ -196,6 +198,46 @@ export class Account {
         });
 
         return validEmails;
+    }
+
+    async syncEmails() {
+        try {
+            const account = await db.account.findUnique({
+                where: { token: this.token }
+            });
+            if (!account) throw new Error('Account not found');
+            if (!account.nextDeltaToken) throw new Error('Account not ready for sync');
+    
+            console.log(`Starting email sync for account: ${account.emailAddress}`);
+    
+            let storedDeltaToken = account.nextDeltaToken;
+            let response = await this.getUpdatedEmails({ pageToken: storedDeltaToken });
+    
+            let allEmails: GmailMessage[] = response.messages;
+            while (response.nextPageToken) {
+                response = await this.getUpdatedEmails({ pageToken: response.nextPageToken });
+                allEmails = allEmails.concat(response.messages);
+                if (response.nextPageToken) {
+                    storedDeltaToken = response.nextPageToken;
+                }
+            }
+    
+            console.log(`Sync completed. Total emails fetched: ${allEmails.length}`);
+    
+            // Process and save emails to the database
+            await syncEmailsToDatabase(allEmails, account.id);
+    
+            // Update the delta token in the database
+            await db.account.update({
+                where: { id: account.id },
+                data: { nextDeltaToken: storedDeltaToken }
+            });
+    
+            return { emails: allEmails, deltaToken: storedDeltaToken };
+        } catch (error) {
+            console.error('Error during email sync:', error);
+            throw error;
+        }
     }
 
     async sendEmail({

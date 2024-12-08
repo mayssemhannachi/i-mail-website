@@ -3,7 +3,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Configure the API key
-const apiKey = process.env.GEMINI_API_KEY;
+ const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not defined in environment variables.");
 }
@@ -37,8 +37,6 @@ export async function generateEmail(context: string, prompt: string): Promise<st
         - Directly output the email, no need to say 'Here is your email' or anything like that.
         - No need to output subject.
         - No need to output signature.
-        - No need to output greeting.
-        - No need to output closing.
         - No need to output any email metadata like date, time, or email addresses.
         - No need to output any email headers like 'From', 'To', 'Subject', 'CC', 'BCC', etc.
         - No need to output any email footers like 'Sent from my iPhone' or 'Sent from my Android device'.

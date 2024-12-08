@@ -19,14 +19,31 @@ import useThreads from "~/hooks/use-threads"
 import { toast } from "sonner"
 
 const ComposeButton = () => {
+    const [open, setOpen] = React.useState(false)
     const [toValues, setToValues] = React.useState<{ label: string, value: string }[]>([]);
     const [subject, setSubject] = React.useState<string>('');
     const sendEmail = api.account.sendEmail.useMutation()
-    const { account ,threadId} = useThreads()
+    const { account, threadId } = useThreads()
+
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'c' && (event.ctrlKey || event.metaKey) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || '')) {
+                event.preventDefault();
+                setOpen(true);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
 
     const handleSend = async (value: string) => {
-        console.log(account)
-        console.log({ value })
+        console.log('Account:', account)
+        console.log('Email Body:', value)
         if (!account) return
         sendEmail.mutate({
             accountId: account.id,
@@ -41,17 +58,20 @@ const ComposeButton = () => {
             },
         }, {
             onSuccess: () => {
-                toast.success('Email Sent')
+                console.log('Email sent successfully')
+                setOpen(false)
+                toast.success("Email sent")
             },
             onError: (error) => {
-                console.error(error)
+                setOpen(false)
+                console.error('Failed to send email:', error)
                 toast.error('Failed to send email')
             }
         })
     }
 
     return (
-        <Drawer>
+        <Drawer open={open} onOpenChange={setOpen}>
             <DrawerTrigger asChild>
                 <Button>
                     <Pencil className="size-4 mr-1" />

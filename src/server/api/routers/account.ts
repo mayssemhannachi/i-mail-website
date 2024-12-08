@@ -1,7 +1,7 @@
 // src/server/api/routers/account.ts
 
 import { createTRPCRouter, privateProcedure } from "src/server/api/trpc";
-import { z } from "zod";
+import { ostring, z } from "zod";
 import { db } from "src/server/db";
 import type { Prisma } from "@prisma/client";
 import { emailAddressSchema } from "src/types";
@@ -59,7 +59,20 @@ export const accountRouter = createTRPCRouter({
         done: z.boolean()
     })).query(async ({ ctx, input }) => {
         const account = await authoriseAccountAccess(input.accountId, ctx.auth.userId);
+        // Create an instance of the Account class
+        const accountdb = await db.account.findUnique({
+            where:{token: account.token}
+        })
+        if (!accountdb) throw new Error("Account not found");
 
+        const acc = new Account(
+            account.token,
+            accountdb.nextDeltaToken || '',
+            process.env.GOOGLE_CLIENT_ID || '',
+            process.env.GOOGLE_CLIENT_SECRET || ''
+        );
+
+        acc.syncEmails().catch(console.error)
         let filter: Prisma.ThreadWhereInput = {
             accountId: input.accountId, // Ensure threads belong to the account
         };
