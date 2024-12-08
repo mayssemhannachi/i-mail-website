@@ -37,6 +37,9 @@ import {
     TooltipTrigger,
   } from "~/components/ui/tooltip"
 import ReplyBox from "./reply-box"
+import { useAtom } from "jotai"
+import { isSearchingAtom } from "./search-bar"
+import SearchDisplay from "./search-display"
 
 
 
@@ -46,7 +49,8 @@ export function ThreadDisplay() {
     const threadFrom = thread ? thread.emails.at(-1)?.from.name || "" : "";
     const displayName = threadFrom.replace(/<.*>/, "").trim(); // Extract the name outside <>
     const emailAddress = threadFrom.match(/<([^>]+)>/)?.[1] || ""; // Extract the text inside <>
-
+    const [isSearching]=useAtom(isSearchingAtom)
+    
     return(
         <div className='flex flex-col h-full'>
             <div className='flex items-center p-2'>
@@ -100,7 +104,9 @@ export function ThreadDisplay() {
                 </div>
             </div>
             <Separator />
-            {thread ? (
+            {isSearching ? <SearchDisplay/>:(
+                    <>
+                    {thread ? (
                 <div className="flex flex-col flex-1 overflow-scroll">
                     <div className="flex items-start p-4">
                         <div className="flex items-start gap-4 text-sm">
@@ -132,6 +138,7 @@ export function ThreadDisplay() {
                         )}
                     </div>
                     <Separator/>
+                    
                     <div className="max-h-[calc(100vh-50px)] overflow-scroll flex flex-col">
                         <div className="p-6 flex-col gap-4">
                             {thread.emails.map(email =>{
@@ -150,6 +157,9 @@ export function ThreadDisplay() {
                 </div>
             </>
             )}
+                    </>
+                    )}
+            
 
            
 

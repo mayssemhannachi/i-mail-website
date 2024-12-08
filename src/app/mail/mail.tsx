@@ -11,6 +11,7 @@ import SideBar from "./sidebar"
 import ThreadList from "./thread-list";
 
 import ThreadDisplay from "./thread-display";
+import SearchBar from "./search-bar";
 
 
 type Props ={
@@ -60,7 +61,7 @@ const Mail = ({defaultLayout =[20,32,48] , navCollapsedSize ,defaultCollapsed } 
                         </div>
                         <Separator />
                         {/*Search Bar*/}
-                        Search Bar
+                        <SearchBar />
                         <TabsContent value="inbox"> 
                             <ThreadList />
                         </TabsContent>

@@ -3,6 +3,7 @@ import { db } from '~/server/db';
 import pLimit from 'p-limit';
 import { PrismaClient, Prisma } from '@prisma/client';
 import TurndownService from 'turndown';
+import { OramaClient } from "./orama";
 
 
 const turndownService = new TurndownService();
@@ -11,19 +12,38 @@ async function syncEmailsToDatabase(emails: GmailMessage[], accountId: string) {
     console.log('Attempting to sync emails to database', emails.length, 'for account', accountId);
     const limit = pLimit(1); // Limit concurrent database writes
 
+   // const orama = new OramaClient(accountId);
+    //await orama.initialize();
     try {
-        // Process each email in parallel with a limit of 10 concurrent writes
+        // Process each email in parallel with a limit of 1 concurrent write
         async function syncToDB() {
             for (const [index, email] of emails.entries()) {
+                const body = await getEmailBody(email);
+                
+                // Ensure body is a string
+                if (typeof body !== 'string') {
+                    console.error(`Error: Email body for ${email.id} is not a string`, body);
+                    continue; // Skip this email if body is not a string
+                }
+
+                console.log('Syncing email:', email.id);
+                /*await orama.insert({
+                    subject: email.snippet,
+                    body: body, // Ensure body is a string
+                    from: email.payload?.headers.find(header => header.name === 'From')?.value,
+                    to: getToField(email),
+                    sentAt: email.payload?.headers.find(header => header.name === 'Date')?.value,
+                    threadId: email.threadId,
+                //});*/
                 await upsertEmail(email, accountId, index);
             }
         }
+
         await Promise.all([syncToDB()]);
     } catch (error) {
         console.log('Error in syncEmailsToDatabase:', error);
     }
 }
-
 function determineLabelType(message: GmailMessage) {
     if (!message.labelIds || !Array.isArray(message.labelIds)) {
         console.error("No labelIds found for email", message.id);
