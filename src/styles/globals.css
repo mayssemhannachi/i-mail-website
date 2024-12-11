@@ -92,3 +92,12 @@
   padding: 0px 2px;
 }
 
+:root {
+  --color-monday: #4285f4;  /* Exemple couleur pour Monday */
+  --color-tuesday: #34a853; /* Exemple couleur pour Tuesday */
+  --color-wednesday: #fbbc05; /* Exemple couleur pour Wednesday */
+  --color-thursday: #ff5733; /* Exemple couleur pour Thursday */
+  --color-friday: #c13584;  /* Exemple couleur pour Friday */
+  --color-saturday: #00bcd4; /* Exemple couleur pour Saturday */
+  --color-sunday: #8e44ad;  /* Exemple couleur pour Sunday */
+}

@@ -27,7 +27,11 @@ import {
 } from '~/components/ui/dialog'
 import { Button, buttonVariants } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
+<<<<<<< HEAD
 import { BarChartComponent } from './dashboard'
+=======
+import { BarChartComponent } from 'src/app/dashboard/dashboard'
+>>>>>>> 45a6592b8d8f09a13cf5435c367687e390a5ce29
 
 
 
@@ -101,6 +105,7 @@ const SideBar = ({ isCollapsed }: Props) => {
                         KPIs
                     </span>
                 </DialogTrigger>
+<<<<<<< HEAD
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>AI Smart Compose</DialogTitle>
@@ -111,8 +116,23 @@ const SideBar = ({ isCollapsed }: Props) => {
                     </DialogHeader>
                 </DialogContent>
             </Dialog>
+=======
+                <DialogContent className="w-full sm:w-[90vw] md:w-[70vw] lg:w-[50vw]">
+                    <DialogHeader>
+                        <DialogTitle>Chatbot Usage Over the Week</DialogTitle>
+                    </DialogHeader>
+                    {/* Ajustement du graphique pour être responsive */}
+                    <div className="w-full h-[400px]">
+                        {BarChartComponent()}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+
+>>>>>>> 45a6592b8d8f09a13cf5435c367687e390a5ce29
         </>
     )
 }
 
 export default SideBar
+
