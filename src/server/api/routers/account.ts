@@ -10,7 +10,7 @@ import { create, insert, search, save, load, type AnyOrama } from "@orama/orama"
 import { persist, restore } from "@orama/plugin-data-persistence";
 
 
-/*export class OramaClient {
+export class OramaClient {
     //@ts-ignore
     private orama : AnyOrama 
     private accountId:string;
@@ -43,11 +43,12 @@ import { persist, restore } from "@orama/plugin-data-persistence";
                     from: 'string',
                     to: 'string[]',
                     sentAt: 'string',
-                    embeddings: 'vector[1536]',
+                    embeddings: 'vector[768]',
                     threadId: 'string'
                 }
             });
             await this.saveIndex();
+            console.log('Current Schema:', this.orama.schema);
         }
     }
     
@@ -68,7 +69,7 @@ import { persist, restore } from "@orama/plugin-data-persistence";
         await this.saveIndex();
     }
     
-}*/
+}
 
 export const authoriseAccountAccess = async (accountId: string, userId: string) => {
     const account = await db.account.findFirst({

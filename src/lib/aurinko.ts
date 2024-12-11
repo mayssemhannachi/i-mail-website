@@ -28,6 +28,8 @@ export const getAurinkoAuthUrl = async (serviceType: 'Google' | 'Office365') => 
 
 export const exchangeCodeForToken = async (code: string) => {
     try {
+        console.log("Client ID:", process.env.GOOGLE_CLIENT_ID);
+        console.log("Client Secret:", process.env.GOOGLE_CLIENT_SECRET);
         const response = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
             code,
             client_id: process.env.GOOGLE_CLIENT_ID as string,

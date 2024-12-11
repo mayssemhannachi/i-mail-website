@@ -116,3 +116,12 @@ export async function generate(context: string): Promise<string> {
         throw new Error("Failed to generate email.");
     }
 }
+
+
+/*
+        const filteredMessages = messages.filter((message: any) => message.role === "user");
+        console.log("Messages for generateContent:", [prompt, ...filteredMessages]);
+        const prepareMessagesForAPI = (message: { role: string, content: string }[]) => {
+            return message.map(message => `${message.role.toUpperCase()}: ${message.content}`).join("\n");
+        };
+        const preparedMessages = prepareMessagesForAPI([prompt, ...filteredMessages]);*/

@@ -1,8 +1,6 @@
 "use client"
 
-// import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-
 import { cn } from "src/lib/utils"
 import { buttonVariants } from "src/components/ui/button"
 import {
@@ -20,12 +18,11 @@ interface NavProps {
     label?: string
     icon: LucideIcon
     variant: "default" | "ghost"
-    onClick?: () => void // Propriété ajoutée ici
+    onClick?: () => void
   }[]
 }
 
 export function Nav({ links, isCollapsed }: NavProps) {
-
   const [_, setTab] = useLocalStorage("I-mAil-tab", "inbox")
 
   return (
@@ -41,6 +38,7 @@ export function Nav({ links, isCollapsed }: NavProps) {
                 <span
                   onClick={() => {
                     setTab(link.title.toLowerCase())
+                    link.onClick && link.onClick()
                     console.log("Tab updated to:", link.title.toLowerCase())
                   }}
                   className={cn(
@@ -68,6 +66,7 @@ export function Nav({ links, isCollapsed }: NavProps) {
               key={index}
               onClick={() => {
                 setTab(link.title.toLowerCase())
+                link.onClick && link.onClick()
                 console.log("Tab updated to:", link.title.toLowerCase())
               }}
               className={cn(

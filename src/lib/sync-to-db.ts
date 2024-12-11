@@ -2,46 +2,45 @@ import { EmailAddress, GmailMessage, getToField, EmailAttachment } from "~/types
 import { db } from '~/server/db';
 import pLimit from 'p-limit';
 import { PrismaClient, Prisma } from '@prisma/client';
-import TurndownService from 'turndown';
+import {turndown} from "./turndown";
 import { OramaClient } from "./orama";
+import { getEmbeddings } from "./embedding";
 
 
-const turndownService = new TurndownService();
 
 async function syncEmailsToDatabase(emails: GmailMessage[], accountId: string) {
     console.log('Attempting to sync emails to database', emails.length, 'for account', accountId);
-    const limit = pLimit(1); // Limit concurrent database writes
+    const limit = pLimit(5); // Limit concurrent database writes
 
-   // const orama = new OramaClient(accountId);
-    //await orama.initialize();
+    const orama = new OramaClient(accountId);
+    try {
+        await orama.initialize();
+    } catch (error) {
+        console.log('Error initializing OramaClient:', error);
+        return; // Exit the function if initialization fails
+    }
+
     try {
         // Process each email in parallel with a limit of 1 concurrent write
-        async function syncToDB() {
-            for (const [index, email] of emails.entries()) {
-                const body = await getEmailBody(email);
-                
-                // Ensure body is a string
-                if (typeof body !== 'string') {
-                    console.error(`Error: Email body for ${email.id} is not a string`, body);
-                    continue; // Skip this email if body is not a string
-                }
+        for (const email of emails) {
+                const emailBody = await getEmailBody(email);
+                const body = turndown.turndown(emailBody ?? email.snippet ?? '');
 
-                console.log('Syncing email:', email.id);
-                /*await orama.insert({
-                    subject: email.snippet,
+                const embeddings = await getEmbeddings(body);
+
+                await orama.insert({
+                    subject: email.subject,
                     body: body, // Ensure body is a string
                     from: email.payload?.headers.find(header => header.name === 'From')?.value,
                     to: getToField(email),
                     sentAt: email.payload?.headers.find(header => header.name === 'Date')?.value,
                     threadId: email.threadId,
-                //});*/
-                await upsertEmail(email, accountId, index);
+                    embeddings
+                });
+                await upsertEmail(email, accountId, 0);
             }
-        }
-
-        await Promise.all([syncToDB()]);
-    } catch (error) {
-        console.log('Error in syncEmailsToDatabase:', error);
+        } catch (error) {
+        console.log('Error in syncEmailsToDatabase oraaaamaaa:', error);
     }
 }
 function determineLabelType(message: GmailMessage) {
@@ -78,7 +77,7 @@ async function getEmailBody(message: GmailMessage) {
                         // Decode HTML body if available
                         const bodyData = part.body.data;
                         const bodyHtml = Buffer.from(bodyData, 'base64').toString('utf-8');
-                        const bodyText = turndownService.turndown(bodyHtml);
+                        const bodyText = turndown.turndown(bodyHtml);
                         return bodyText;
                     }
                 }
