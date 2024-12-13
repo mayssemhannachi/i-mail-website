@@ -20,13 +20,13 @@ import {
 
 // Données statiques d'utilisation du chatbot pendant la semaine
 const chartData = [
-  { day: "Monday", use: 13, fill: "var(--color-monday)" },
-  { day: "Tuesday", use: 15, fill: "var(--color-tuesday)" },
-  { day: "Wednesday", use: 18, fill: "var(--color-wednesday)" },
-  { day: "Thursday", use: 20, fill: "var(--color-thursday)" },
-  { day: "Friday", use: 10, fill: "var(--color-friday)" },
-  { day: "Saturday", use: 5, fill: "var(--color-saturday)" },
-  { day: "Sunday", use: 2, fill: "var(--color-sunday)" },
+  { day: "Monday", use: 0, fill: "var(--color-monday)" },
+  { day: "Tuesday", use: 5, fill: "var(--color-tuesday)" },
+  { day: "Wednesday", use: 10, fill: "var(--color-wednesday)" },
+  { day: "Thursday", use: 21, fill: "var(--color-thursday)" },
+  { day: "Friday", use: 17, fill: "var(--color-friday)" },
+  { day: "Saturday", use: 3, fill: "var(--color-saturday)" },
+  { day: "Sunday", use: 0, fill: "var(--color-sunday)" },
 ];
 
 // Configuration du graphique
@@ -112,10 +112,10 @@ export function BarChartComponent() {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">
-          Trending down by 84.62% this week <TrendingUp className="h-4 w-4" />
+          Trending by by 100% this week <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
-          Total chatbot usage this week: 83 interactions
+          Total chatbot usage this week: 56 interactions
         </div>
       </CardFooter>
     </Card>
